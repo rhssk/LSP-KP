@@ -1,62 +1,27 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
 #include <unistd.h>
-#include <signal.h>
-#include <setjmp.h>
-#include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include "debug_macros.h"
 #include "packets.h"
 #include "server.h"
 
-static jmp_buf env;
-
-void sig_handler(int signal)
-{
-    if (signal == SIGINT)
-        longjmp(env, 1);
-}
-
 void server_mode(const unsigned long port)
 {
     int sock, client;
-    struct sigaction sa;
-
-    /* Allow program to clean-up when user wants to quit */
-    sa.sa_handler = sig_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART;
-
-    check(sigaction(SIGINT, &sa, NULL) != -1, "Failed to handle SIGINT");
 
     sock = create_sock(port);
     if (sock == -1) goto error;
 
-    while (1) {
-        /* Catch termination by user */
-        if (setjmp(env) == 1) {
-            log_info("Terminated by user, cleaning up...");
-            goto error;
-        }
+    client = wait_for_client(sock);
+    if (client == -1) goto error;
 
-        client = wait_for_client(sock);
-        if (client == -1) {
-            close(sock);
-            goto error;
-        }
+    check(recv_msg(client) != -1, "Failed to read from client");
+    check(send_msg(client) != -1, "Failed to send to client");
 
-        check(recv_msg(client) != -1, "Failed to read from client");
-        check(send_msg(client) != -1, "Failed to send to client");
-
-        close(client);
-        close(sock);
-    }
+    close(client);
+    close(sock);
 error:
-    /* close(client); */
-    /* close(sock); */
     return;
 }
 
@@ -67,6 +32,10 @@ int create_sock(unsigned long port)
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     check(sock >= 0, "Couldn't open socket");
+    int enable_addr_reuse = 1;
+    check(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
+                     &enable_addr_reuse, sizeof(int)) >= 0,
+          "Failed to set SO_REUSEADDR for socket");
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
@@ -76,7 +45,6 @@ int create_sock(unsigned long port)
 
     return sock;
 error:
-    close(sock);
     return -1;
 }
 
@@ -93,8 +61,6 @@ int wait_for_client(int sock)
 
     return client;
 error:
-    close(sock);
-    close(client);
     return -1;
 }
 
