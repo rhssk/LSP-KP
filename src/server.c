@@ -34,7 +34,6 @@ void handle_clients(int sock)
     char *msg = malloc(BUFFER_SIZE);
     while (1) {
         if (recv_msg(client, msg, BUFFER_SIZE) == -1) goto error;
-        debug("RECEIVED MESSAGE: %s", msg);
 
         strcpy(msg, "SERVER ANSWER");
         if (send_msg(client, msg, BUFFER_SIZE) == -1) goto error;

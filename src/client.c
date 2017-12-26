@@ -38,7 +38,6 @@ void client_mode(const char *address, const unsigned long port)
 
         memset(msg, '\0', BUFFER_SIZE);
         if (recv_msg(sock, msg, BUFFER_SIZE) == -1) goto error;
-        debug("RECEIVED MESSAGE: %s", msg);
     }
 
     free(msg);
