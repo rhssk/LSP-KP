@@ -5,7 +5,10 @@
 #include <netdb.h>
 #include "debug_macros.h"
 #include "packets.h"
+#include "communication.h"
 #include "client.h"
+
+#define BUFFER_SIZE 255
 
 void client_mode(const char *address, const unsigned long port)
 {
@@ -14,9 +17,11 @@ void client_mode(const char *address, const unsigned long port)
     struct hostent *server;
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
-    check(sock >= 0, "Couldn't open the socket");
+    check(sock >= 0,
+          "Couldn't open the socket");
     server = gethostbyname(address);
-    check(server != NULL, "Couldn't find the host");
+    check(server != NULL,
+          "Couldn't find the host");
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     bcopy((char *)server->h_addr,
@@ -26,38 +31,18 @@ void client_mode(const char *address, const unsigned long port)
     check(connect(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) >= 0,
           "Failed to connect to server");
 
-    check(send_msg(sock) != -1, "Failed to send to client");
-    check(recv_msg(sock) != -1, "Failed to read from client");
+    char *msg = malloc(BUFFER_SIZE);
+    while (1) {
+        fgets(msg, BUFFER_SIZE, stdin);
+        if (send_msg(sock, msg, BUFFER_SIZE) == -1) goto error;
 
+        memset(msg, '\0', BUFFER_SIZE);
+        if (recv_msg(sock, msg, BUFFER_SIZE) == -1) goto error;
+        debug("RECEIVED MESSAGE: %s", msg);
+    }
+
+    free(msg);
     close(sock);
 error:
     return;
-}
-
-int recv_msg(int server)
-{
-    char buffer[255];
-
-    check(read(server, buffer, sizeof(buffer)) >= 0,
-          "Failed to read from socket");
-
-    debug("FROM SERVER: %d RECEIVE: %s", server, buffer);
-
-    return 0;
-error:
-    return -1;
-}
-
-int send_msg(int server)
-{
-    char buffer[255] = "CLIENT MESSAGE";
-
-    check(write(server, buffer, sizeof(buffer)) >= 0,
-          "Failed to write to socket");
-
-    debug("TO SERVER: %d SEND: %s", server, buffer);
-
-    return 0;
-error:
-    return -1;
 }
