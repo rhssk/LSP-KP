@@ -4,8 +4,7 @@
 extern void server_mode(const unsigned long port);
 
 static int create_sock(unsigned long port);
+void handle_clients(int sock);
 static int wait_for_client(int sock);
-static int recv_msg(int client);
-static int send_msg(int client);
 
 #endif /* SERVER_H */
