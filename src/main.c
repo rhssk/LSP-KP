@@ -1,159 +1,115 @@
 #include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
 #include <string.h>
-#include <unistd.h>
 #include <arpa/inet.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include "debug_macros.h"
+#include "server.h"
+#include "client.h"
 #include "main.h"
 
-void print_help()
+void print_help(void)
 {
     printf("This is help!\n");
 }
 
-bool valid_ip(char *address)
+int valid_ip(char *address)
 {
     struct sockaddr_in sa;
-    int result = inet_pton(AF_INET, address, &(sa.sin_addr));
-    return result == 1;
+
+    return inet_pton(AF_INET, address, &(sa.sin_addr)) == 1;
 }
 
-bool valid_port(char *port_str, unsigned long *port)
+int valid_port(char *port_str, unsigned long *port)
 {
     char *endptr;
 
-    // Check for negative numbers
+    /* Check for negative numbers */
     check(strchr(port_str, '-') == NULL,
           "Port number should be positive");
 
     *port = strtoul(port_str, &endptr, 10);
 
-    // Check for non-integer numbers
+    /* Check for non-integer numbers */
     check(*endptr == '\0',
           "Port number should be a natural number");
 
-    // Check for range
+    /* Check for range */
     check(*port >= 2000 && *port <= 65535,
           "Port number should be between 2000 and 65535");
 
-    return true;
-
+    return 1;
 error:
-    return false;
-}
-
-int create_sock(unsigned long port)
-{
-    int sock;
-    struct sockaddr_in serv_addr;
-
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    check(sock >= 0, "Couldn't open socket");
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(port);
-    check(bind(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) >= 0,
-          "Couldn't bind the socket");
-
-    return sock;
-error:
-    close(sock);
-    return -1;
-}
-
-int wait_for_client(int sock)
-{
-    int client;
-    socklen_t clilen;
-    struct sockaddr_in cli_addr;
-
-    listen(sock, 5);
-    clilen = sizeof(cli_addr);
-    client = accept(sock, (struct sockaddr *) &cli_addr, &clilen);
-    check(client >= 0, "Failed to accept");
-
-    return client;
-error:
-    close(sock);
-    close(client);
-    return -1;
-}
-
-int recv_msg(int client)
-{
-    char buffer[255];
-
-    check(read(client, buffer, sizeof(buffer)) >= 0,
-          "Failed to read from socket");
-
-    debug("FROM CLIENT: %d RECEIVE: %s", client, buffer);
-
     return 0;
-error:
-    return -1;
-}
-
-int send_msg(int client)
-{
-    char buffer[255] = "JOIN RESPONSE";
-
-    check(write(client, buffer, sizeof(buffer)) >= 0,
-          "Failed to write to socket");
-
-    debug("TO CLIENT: %d SEND: %s", client, buffer);
-
-    return 0;
-error:
-    return -1;
 }
 
 int main(int argc, char **argv)
 {
-    int sock, client;
+    /* Choose operating mode. 0 = client, 1 = server, -1 = unrecognized */
+    int mode = -1;
+    /* Can hold only IPv4 addresses */
+    char address[15];
     unsigned long port = 0;
+
+    /* Allows to safely check if address is empty */
+    address[0] = '\0';
 
     if (argc == 1) {
         print_help();
         sentinel("Too few arguments");
     }
 
-    // Parse command line arguments
-    for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "-h")  == 0 ||
+    /* Parse command line arguments */
+    int i;
+    for (i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "-h") == 0 ||
             strcmp(argv[i], "--help") == 0) {
             print_help();
-        } else if (strcmp(argv[i], "-p")  == 0 ||
+            return 0;
+        } else if (strcmp(argv[i], "-m") == 0 ||
+                   strcmp(argv[i], "--mode") == 0) {
+            check(i < argc - 1,
+                  "An operating mode needs to be specified");
+            i++;
+            if (strcmp(argv[i], "client") == 0) mode = 0;
+            if (strcmp(argv[i], "server") == 0) mode = 1;
+        } else if (strcmp(argv[i], "-a") == 0 ||
+                   strcmp(argv[i], "--address") == 0) {
+            check(i < argc - 1,
+                  "An IPv4 address is required");
+            check(valid_ip(argv[++i]) == 1,
+                  "Provided IP address is in invalid format");
+            strcpy(address, argv[i]);
+        } else if (strcmp(argv[i], "-p") == 0 ||
                    strcmp(argv[i], "--port") == 0) {
             check(i < argc - 1,
                   "A port number is required");
-            if (!valid_port(argv[++i], &port)) goto error;
+            if (valid_port(argv[++i], &port) == 0)
+                goto error;
         } else {
             print_help();
             sentinel("Unrecognized arguments");
         }
     }
 
-    sock = create_sock(port);
-    if (sock == -1) goto error;
+    /* See if mandatory arguments have been provided */
+    check(port != 0, "A port number needs to be specified");
 
-    client = wait_for_client(sock);
-    if (client == -1) {
-        close(sock);
-        goto error;
+    switch (mode) {
+    case 0: {
+        /* Client mode specific argument checks */
+        check(address[0] != '\0', "Client mode requires an IP address");
+        /* client_mode(address, port); */
+        break;
+    }
+    case 1: {
+        /* server_mode(port); */
+        break;
+    }
+    default:
+        sentinel("Unrecognized operating mode specified");
+        break;
     }
 
-    check(recv_msg(client) != -1, "Failed to read from client");
-    check(send_msg(client) != -1, "Failed to send to client");
-
-    close(client);
-    close(sock);
-
     return 0;
-
 error:
     return 1;
 }
