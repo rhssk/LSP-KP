@@ -13,7 +13,7 @@ LIB := -lm
 INC := -I /usr/include -I /usr/local/include -I $(INCDIR)
 
 ## Language standard
-CXXFLAGS := -std=gnu99
+CXXFLAGS := -std=gnu89
 
 # Debug build - no optimizations
 ifeq ($(BUILD),debug)
