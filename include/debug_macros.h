@@ -6,58 +6,9 @@
 #include <errno.h>
 #include <string.h>
 
-#ifdef NDEBUG
-#define debug(M, ...)
-
-#define FILE_LINE " "
-#define FILE_LINE_ERR " "
-#else
-// Add additional info about source file and line in logs if debugging
-#define FILE_LINE " (%s:%d): "
-#define FILE_LINE_ERR " (%s:%d: errno: %s): "
-
-/// Print info to stderr about variable location
-#define debug(M, ...)\
-            fprintf(\
-                stderr,\
-                "[DEBUG]" FILE_LINE M "\n",\
-                __FILE__,\
-                __LINE__,\
-                ##__VA_ARGS__)
-#endif
-
 /// Get clean error number
 #define clean_errno()\
             (errno == 0 ? "None" : strerror(errno))
-
-/// Log an error to stderr
-#define log_err(M, ...)\
-            fprintf(\
-                stderr,\
-                "[ERROR]" FILE_LINE_ERR M "\n",\
-                __FILE__,\
-                __LINE__,\
-                clean_errno(),\
-                ##__VA_ARGS__)
-
-/// Log a warning to stderr
-#define log_warn(M, ...)\
-            fprintf(\
-                stderr,\
-                "[WARN]" FILE_LINE_ERR M "\n",\
-                __FILE__,\
-                __LINE__,\
-                clean_errno(),\
-                ##__VA_ARGS__)
-
-/// Log info to stderr
-#define log_info(M, ...)\
-            fprintf(\
-                stderr,\
-                "[INFO]" FILE_LINE M "\n",\
-                __FILE__, __LINE__,\
-                ##__VA_ARGS__)
-
 /// Check if variable is true. If not, log an error
 #define check(A, M, ...)\
             if(!(A)) {\
@@ -65,17 +16,14 @@
                 errno=0;\
                 goto error;\
             }
-
 /// Log and throw an error if called
 #define sentinel(M, ...)\
             log_err(M, ##__VA_ARGS__);\
             errno=0;\
             goto error;\
-
 /// Check if memory points to something meaningful
 #define check_mem(A)\
             check((A), "Out of memory.")
-
 /// Check if variable is true. If not, throw an error and debug other variables
 #define check_debug(A, M, ...)\
             if(!(A)) {\
@@ -84,4 +32,64 @@
                 goto error;\
             }
 
-#endif
+// Cleaner logs for release builds
+#ifdef NDEBUG
+#define debug(M, ...)
+/// Log an error to stderr
+#define log_err(M, ...)\
+            fprintf(\
+                stderr,\
+                "[ERROR] " M "\n",\
+                ##__VA_ARGS__)
+/// Log a warning to stderr
+#define log_warn(M, ...)\
+            fprintf(\
+                stderr,\
+                "[WARN] " M "\n",\
+                ##__VA_ARGS__)
+/// Log info to stderr
+#define log_info(M, ...)\
+            fprintf(\
+                stderr,\
+                "[INFO] " M "\n",\
+                ##__VA_ARGS__)
+#endif /* NDEBUG */
+
+// More verbose everything for debug builds
+#ifdef DEBUG
+/// Print info to stderr about variable location
+#define debug(M, ...)\
+            fprintf(\
+                stderr,\
+                "[DEBUG] (%s:%d): " M "\n",\
+                __FILE__,\
+                __LINE__,\
+                ##__VA_ARGS__)
+/// Log an error to stderr
+#define log_err(M, ...)\
+            fprintf(\
+                stderr,\
+                "[ERROR] (%s:%d: errno: %s) " M "\n",\
+                __FILE__,\
+                __LINE__,\
+                clean_errno(),\
+                ##__VA_ARGS__)
+/// Log a warning to stderr
+#define log_warn(M, ...)\
+            fprintf(\
+                stderr,\
+                "[WARN] (%s:%d: errno: %s) " M "\n",\
+                __FILE__,\
+                __LINE__,\
+                clean_errno(),\
+                ##__VA_ARGS__)
+/// Log info to stderr
+#define log_info(M, ...)\
+            fprintf(\
+                stderr,\
+                "[INFO] (%s:%d) " M "\n",\
+                __FILE__, __LINE__,\
+                ##__VA_ARGS__)
+#endif /* DEBUG */
+
+#endif /* __debug_macros_h__ */
