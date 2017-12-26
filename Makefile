@@ -35,7 +35,7 @@ ifeq ($(BUILD),debug)
 	LDFLAGS += -z now
 else
 	## Release build - full optimization, native build and strip debug symbols
-	CXXFLAGS += -O3 -march=native -s
+	CXXFLAGS += -O3 -march=native -s -DNDEBUG
 	## Optimization options
 	CXXFLAGS += -fstack-protector-all -fstack-protector-strong \
 				-fstrict-aliasing
