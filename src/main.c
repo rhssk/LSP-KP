@@ -97,11 +97,13 @@ int main(int argc, char **argv)
     case 0: {
         /* Client mode specific argument checks */
         check(address[0] != '\0', "Client mode requires an IP address");
-        /* client_mode(address, port); */
+        client_mode(address, port);
         break;
     }
     case 1: {
-        /* server_mode(port); */
+        if (address[0] != '\0')
+            log_warn("Address is not used in server mode");
+        server_mode(port);
         break;
     }
     default:
