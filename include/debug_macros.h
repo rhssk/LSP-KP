@@ -8,12 +8,19 @@
 
 #ifdef NDEBUG
 #define debug(M, ...)
+
+#define FILE_LINE " "
+#define FILE_LINE_ERR " "
 #else
+// Add additional info about source file and line in logs if debugging
+#define FILE_LINE " (%s:%d): "
+#define FILE_LINE_ERR " (%s:%d: errno: %s): "
+
 /// Print info to stderr about variable location
 #define debug(M, ...)\
             fprintf(\
                 stderr,\
-                "[DEBUG] (%s:%d): " M "\n",\
+                "[DEBUG]" FILE_LINE M "\n",\
                 __FILE__,\
                 __LINE__,\
                 ##__VA_ARGS__)
@@ -27,7 +34,7 @@
 #define log_err(M, ...)\
             fprintf(\
                 stderr,\
-                "[ERROR] (%s:%d: errno: %s) " M "\n",\
+                "[ERROR]" FILE_LINE_ERR M "\n",\
                 __FILE__,\
                 __LINE__,\
                 clean_errno(),\
@@ -37,7 +44,7 @@
 #define log_warn(M, ...)\
             fprintf(\
                 stderr,\
-                "[WARN] (%s:%d: errno: %s) " M "\n",\
+                "[WARN]" FILE_LINE_ERR M "\n",\
                 __FILE__,\
                 __LINE__,\
                 clean_errno(),\
@@ -47,7 +54,7 @@
 #define log_info(M, ...)\
             fprintf(\
                 stderr,\
-                "[INFO] (%s:%d) " M "\n",\
+                "[INFO]" FILE_LINE M "\n",\
                 __FILE__, __LINE__,\
                 ##__VA_ARGS__)
 
