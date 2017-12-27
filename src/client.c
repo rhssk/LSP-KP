@@ -10,7 +10,7 @@
 
 #define BUFFER_SIZE 255
 
-void client_mode(const char *address, const unsigned long port)
+void client_mode(const char *address, char *port)
 {
     int sock;
     struct sockaddr_in serv_addr;
@@ -27,7 +27,8 @@ void client_mode(const char *address, const unsigned long port)
     bcopy((char *)server->h_addr,
           (char *)&serv_addr.sin_addr.s_addr,
           server->h_length);
-    serv_addr.sin_port = htons(port);
+    char *endptr;
+    serv_addr.sin_port = htons(strtoul(port, &endptr, 10));
     check(connect(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) >= 0,
           "Failed to connect to server");
 

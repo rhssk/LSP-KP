@@ -18,22 +18,23 @@ int valid_ip(char *address)
     return inet_pton(AF_INET, address, &(sa.sin_addr)) == 1;
 }
 
-int valid_port(char *port_str, unsigned long *port)
+int valid_port(const char *port_str)
 {
+    unsigned long tmp_port;
     char *endptr;
 
     /* Check for negative numbers */
     check(strchr(port_str, '-') == NULL,
           "Port number should be positive");
 
-    *port = strtoul(port_str, &endptr, 10);
+    tmp_port = strtoul(port_str, &endptr, 10);
 
     /* Check for non-integer numbers */
     check(*endptr == '\0',
           "Port number should be a natural number");
 
     /* Check for range */
-    check(*port >= 2000 && *port <= 65535,
+    check(tmp_port >= 2000 && tmp_port <= 65535,
           "Port number should be between 2000 and 65535");
 
     return 1;
@@ -47,10 +48,11 @@ int main(int argc, char **argv)
     int mode = -1;
     /* Can hold only IPv4 addresses */
     char address[15];
-    unsigned long port = 0;
+    char port[6];
 
-    /* Allows to safely check if address is empty */
+    /* Allows to safely check if address or port is empty */
     address[0] = '\0';
+    port[0] = '\0';
 
     if (argc == 1) {
         print_help();
@@ -82,7 +84,8 @@ int main(int argc, char **argv)
                    strcmp(argv[i], "--port") == 0) {
             check(i < argc - 1,
                   "A port number is required");
-            if (valid_port(argv[++i], &port) == 0)
+            strcpy(port, argv[++i]);
+            if (valid_port(port) == 0)
                 goto error;
         } else {
             print_help();
@@ -91,7 +94,7 @@ int main(int argc, char **argv)
     }
 
     /* See if mandatory arguments have been provided */
-    check(port != 0, "A port number needs to be specified");
+    check(port != '\0', "A port number needs to be specified");
 
     switch (mode) {
     case 0: {

@@ -9,7 +9,7 @@ SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
 
-LIB := -lm
+LIB := -lm -lpthread
 INC := -I /usr/include -I /usr/local/include -I $(INCDIR)
 
 ## Language standard

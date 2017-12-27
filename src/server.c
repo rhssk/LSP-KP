@@ -1,8 +1,8 @@
-#include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
+#include <netdb.h>
+#include <pthread.h>
 #include "debug_macros.h"
 #include "packets.h"
 #include "communication.h"
@@ -11,81 +11,141 @@
 #define MAX_CONN_QUEUE 5
 #define BUFFER_SIZE 255
 
-void server_mode(const unsigned long port)
+void server_mode(char *port)
 {
-    int sock, client;
+    pthread_t server_thread;
 
-    sock = create_sock(port);
-    if (sock == -1) goto error;
+    check(pthread_create(&server_thread, NULL, accept_clients, port) == 0,
+          "Failed to create a new thread to accept connections");
 
-    handle_clients(sock);
+    pthread_join(server_thread, NULL);
+    pthread_exit(NULL);
 error:
-    close(sock);
     return;
 }
 
-void handle_clients(int sock)
+void *accept_clients(void *args)
 {
-    int client;
+    int serv_sock, status;
+    struct addrinfo hints, *res, *p = NULL;
 
-    client = wait_for_client(sock);
-    if (client == -1) return;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC; /* Don't care about IP version */
+    hints.ai_socktype = SOCK_STREAM; /* TCP stream socket */
+    hints.ai_flags = AI_PASSIVE; /* Use local host IP */
 
-    char *msg = malloc(BUFFER_SIZE);
-    while (1) {
-        if (recv_msg(client, msg, BUFFER_SIZE) == -1) goto error;
+    status = getaddrinfo(NULL, args, &hints, &res);
+    check(status  == 0,
+          "%s", gai_strerror(status));
 
-        strcpy(msg, "SERVER ANSWER");
-        if (send_msg(client, msg, BUFFER_SIZE) == -1) goto error;
+    /* Find at least one working socket */
+    for (p = res; p != NULL; p = p->ai_next) {
+        serv_sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+        if (serv_sock == -1) {
+            log_err("Failed to open socket");
+            continue;
+        }
+
+        int reuse_addr = 1;
+        if (setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR,
+                       &reuse_addr, sizeof(int)) == -1) {
+            log_err("Failed set address for socket as reusable");
+            close(serv_sock);
+            continue;
+        }
+
+        if (bind(serv_sock, p->ai_addr, p->ai_addrlen) == -1) {
+            log_err("Failed to bind the socket to a port");
+            close(serv_sock);
+            continue;
+        }
+
+        if (listen(serv_sock, MAX_CONN_QUEUE) == -1) {
+            log_err("Failed to listen for connections on the socket");
+            close(serv_sock);
+            continue;
+        }
+
+        break;
     }
+
+    freeaddrinfo(res);
+
+    check(p != NULL,
+          "Failed to get any usable sockets");
+
+    /* Wait for connections */
+    debug("Waiting for incoming connections");
+    if (wait_for_client(serv_sock) == -1) {
+        close(serv_sock);
+        pthread_exit(NULL);
+    }
+
 error:
-    /* Client is in a failed state.
-     * Clean up and start listening for new clients
-     */
-    close(client);
-    free(msg);
-    handle_clients(sock);
+    pthread_exit(NULL);
 }
 
-int create_sock(unsigned long port)
+int wait_for_client(int serv_sock)
+{
+    int client_sock;
+    struct sockaddr_storage *client_addr;
+    socklen_t sin_size = sizeof(struct sockaddr_storage);
+    worker_args_t *wa;
+    pthread_t worker_thread;
+
+    while (1) {
+        client_addr = malloc(sin_size);
+        client_sock = accept(serv_sock, (struct sockaddr *) client_addr, &sin_size);
+        if (client_sock == -1) {
+            free(client_addr);
+            log_err("Failed to accept connection from client");
+            continue;
+        }
+
+        debug("Client(%d) has connected", client_sock);
+
+        wa = malloc(sizeof(worker_args_t));
+        wa->socket = client_sock;
+
+        if (pthread_create(&worker_thread, NULL, service_client, wa) != 0)
+            goto error;
+    }
+
+error:
+    log_err("Failed to create a worker thread");
+    free(wa);
+    free(client_addr);
+    close(client_sock);
+    close(serv_sock);
+    pthread_exit(NULL);
+    return -1;
+}
+
+void *service_client(void *args)
 {
     int sock;
-    struct sockaddr_in serv_addr;
+    char *msg = NULL;
+    worker_args_t *wa;
 
-    /* Create new TCP socket */
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    check(sock >= 0,
-          "Couldn't open socket");
-    int enable_addr_reuse = 1;
-    check(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
-                     &enable_addr_reuse, sizeof(int)) >= 0,
-          "Failed to reuse address for socket");
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(port);
-    check(bind(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) >= 0,
-          "Couldn't bind the socket");
+    wa = (worker_args_t *) args;
+    sock = wa->socket;
 
-    return sock;
+    /* Detach current thread so noone has to wait for it when client quits */
+    check(pthread_detach(pthread_self()) == 0,
+          "Failed to detach current thread");
+
+    msg = malloc(BUFFER_SIZE);
+    while (1) {
+        if (recv_msg(sock, msg, BUFFER_SIZE) == -1) goto error;
+        debug("SENT MSG: %s", msg);
+
+        strcpy(msg, "SERVER ANSWER");
+        if (send_msg(sock, msg, BUFFER_SIZE) == -1) goto error;
+        debug("RECEIVED MSG: %s", msg);
+    }
+
+
 error:
-    return -1;
-}
-
-int wait_for_client(int sock)
-{
-    int client;
-    socklen_t clilen;
-    struct sockaddr_in cli_addr;
-
-    check(listen(sock, MAX_CONN_QUEUE) == 0,
-          "Failed to mark socket to accept incoming connection requests");
-    clilen = sizeof(cli_addr);
-    client = accept(sock, (struct sockaddr *)&cli_addr, &clilen);
-    check(client >= 0,
-          "Failed to accept");
-
-    return client;
-error:
-    return -1;
+    if (!msg) free(msg);
+    pthread_exit(NULL);
 }

@@ -1,10 +1,15 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-extern void server_mode(const unsigned long port);
+typedef struct worker_args {
+    int socket;
+} worker_args_t;
 
-static int create_sock(unsigned long port);
-static void handle_clients(int sock);
-static int wait_for_client(int sock);
+extern void server_mode(char *port);
+
+static int server_thread(unsigned long port);
+static void *accept_clients(void *args);
+static int wait_for_client(int serv_sock);
+static void *service_client(void *args);
 
 #endif /* SERVER_H */
