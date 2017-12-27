@@ -11,11 +11,11 @@
 #define MAX_CONN_QUEUE 5
 #define BUFFER_SIZE 255
 
-void server_mode(char *port)
+void server_mode(const char *port)
 {
     pthread_t server_thread;
 
-    check(pthread_create(&server_thread, NULL, accept_clients, port) == 0,
+    check(pthread_create(&server_thread, NULL, accept_clients, (char *)port) == 0,
           "Failed to create a new thread to accept connections");
 
     pthread_join(server_thread, NULL);
@@ -74,7 +74,6 @@ void *accept_clients(void *args)
     check(p != NULL,
           "Failed to get any usable sockets");
 
-    /* Wait for connections */
     debug("Waiting for incoming connections");
     if (wait_for_client(serv_sock) == -1) {
         close(serv_sock);
@@ -102,7 +101,7 @@ int wait_for_client(int serv_sock)
             continue;
         }
 
-        debug("Client(%d) has connected", client_sock);
+        log_info("Remote has connected");
 
         wa = malloc(sizeof(worker_args_t));
         wa->socket = client_sock;

@@ -10,39 +10,60 @@
 
 #define BUFFER_SIZE 255
 
-void client_mode(const char *address, char *port)
+void client_mode(const char *address, const char *port)
 {
-    int sock;
-    struct sockaddr_in serv_addr;
-    struct hostent *server;
+    int serv_sock, status;
+    struct addrinfo hints, *res, *p = NULL;
 
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    check(sock >= 0,
-          "Couldn't open the socket");
-    server = gethostbyname(address);
-    check(server != NULL,
-          "Couldn't find the host");
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr,
-          (char *)&serv_addr.sin_addr.s_addr,
-          server->h_length);
-    char *endptr;
-    serv_addr.sin_port = htons(strtoul(port, &endptr, 10));
-    check(connect(sock, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) >= 0,
-          "Failed to connect to server");
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC; /* Don't care about IP version */
+    hints.ai_socktype = SOCK_STREAM; /* TCP stream socket */
 
+    status = getaddrinfo(address, port, &hints, &res);
+    check(status  == 0,
+          "%s", gai_strerror(status));
+
+    /* Find at least one working socket */
+    for (p = res; p != NULL; p = p->ai_next) {
+        serv_sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+        if (serv_sock == -1) {
+            continue;
+        }
+
+        if (connect(serv_sock, res->ai_addr, res->ai_addrlen) == -1) {
+            close(serv_sock);
+            continue;
+        }
+
+        break;
+    }
+
+    freeaddrinfo(res);
+
+    check(p != NULL,
+          "Failed to get any usable sockets");
+
+    debug("Connction with server established");
+    if (talk_to_server(serv_sock) == -1) {
+        close(serv_sock);
+        goto error;
+    }
+error:
+    return;
+}
+
+int talk_to_server(int serv_sock)
+{
     char *msg = malloc(BUFFER_SIZE);
     while (1) {
         fgets(msg, BUFFER_SIZE, stdin);
-        if (send_msg(sock, msg, BUFFER_SIZE) == -1) goto error;
+        if (send_msg(serv_sock, msg, BUFFER_SIZE) == -1) goto error;
 
         memset(msg, '\0', BUFFER_SIZE);
-        if (recv_msg(sock, msg, BUFFER_SIZE) == -1) goto error;
+        if (recv_msg(serv_sock, msg, BUFFER_SIZE) == -1) goto error;
     }
 
-    free(msg);
-    close(sock);
 error:
-    return;
+    free(msg);
+    return -1;
 }

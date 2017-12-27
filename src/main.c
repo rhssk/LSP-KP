@@ -6,6 +6,8 @@
 #include "client.h"
 #include "main.h"
 
+#define PORT_SIZE 6
+
 void print_help(void)
 {
     printf("This is help!\n");
@@ -47,8 +49,8 @@ int main(int argc, char **argv)
     /* Choose operating mode. 0 = client, 1 = server, -1 = unrecognized */
     int mode = -1;
     /* Can hold only IPv4 addresses */
-    char address[15];
-    char port[6];
+    char address[INET_ADDRSTRLEN];
+    char port[PORT_SIZE];
 
     /* Allows to safely check if address or port is empty */
     address[0] = '\0';
@@ -94,7 +96,7 @@ int main(int argc, char **argv)
     }
 
     /* See if mandatory arguments have been provided */
-    check(port != '\0', "A port number needs to be specified");
+    check(port[0] != '\0', "A port number needs to be specified");
 
     switch (mode) {
     case 0: {

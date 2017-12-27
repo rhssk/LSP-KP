@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <sys/socket.h>
 #include "debug_macros.h"
 #include "communication.h"
 
@@ -6,12 +7,12 @@ int recv_msg(int remote, void *data, size_t size)
 {
     ssize_t status;
 
-    status = read(remote, data, size);
+    status = recv(remote, data, size, 0);
     if (status == 0) {
-        log_info("Remote(%d) has disconnected", remote);
+        log_info("Remote has disconnected");
         goto error;
     }
-    check(status >= 0, "Failed to read data from remote(%d)", remote);
+    check(status >= 0, "Failed to read data from remote");
 
     debug("RECEIVED DATA FROM REMOTE(%d)", remote);
 
@@ -24,11 +25,11 @@ int send_msg(int remote, void *data, size_t size)
 {
     ssize_t status;
 
-    status = write(remote, data, size);
+    status = send(remote, data, size, 0);
     if (status == 0) {
-        log_info("Wrote 0 bytes to remote(%d)", remote);
+        log_info("Remote has disconnected");
     }
-    check(status >= 0, "Failed to write data to remote(%d)", remote);
+    check(status >= 0, "Failed to write data to remote");
 
     debug("SENT DATA TO REMOTE(%d)", remote);
 
