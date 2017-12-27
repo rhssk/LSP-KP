@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include "debug_macros.h"
 #include "packets.h"
-#include "communication.h"
+#include "common.h"
 #include "server.h"
 
 #define MAX_CONN_QUEUE 5
@@ -91,6 +91,8 @@ int wait_for_client(int serv_sock)
     socklen_t sin_size = sizeof(struct sockaddr_storage);
     worker_args_t *wa;
     pthread_t worker_thread;
+    char ipstr[INET6_ADDRSTRLEN];
+    int port;
 
     while (1) {
         client_addr = malloc(sin_size);
@@ -101,7 +103,8 @@ int wait_for_client(int serv_sock)
             continue;
         }
 
-        log_info("Remote has connected");
+        get_remote_ip_port(client_sock, ipstr, &port);
+        log_info("Remote(%s:%d) has connected", ipstr, port);
 
         wa = malloc(sizeof(worker_args_t));
         wa->socket = client_sock;

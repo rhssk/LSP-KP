@@ -5,7 +5,7 @@
 #include <netdb.h>
 #include "debug_macros.h"
 #include "packets.h"
-#include "communication.h"
+#include "common.h"
 #include "client.h"
 
 #define BUFFER_SIZE 255
