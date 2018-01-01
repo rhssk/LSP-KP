@@ -1,5 +1,5 @@
 AR := ar
-CXX := gcc
+CXX := $(CC)
 SRCDIR := src
 BUILDDIR := build
 INCDIR := include
