@@ -10,7 +10,7 @@
 
 #define BUFFER_SIZE 255
 
-void client_mode(const char *address, const char *port)
+void init_client(const char *address, const char *port)
 {
     int serv_sock, status;
     struct addrinfo hints, *res, *p = NULL;

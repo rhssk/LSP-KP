@@ -8,10 +8,10 @@
 #include "common.h"
 #include "server.h"
 
-#define MAX_CONN_QUEUE 5
+#define BACKLOG 5
 #define BUFFER_SIZE 255
 
-void server_mode(const char *port)
+void init_server(const char *port)
 {
     pthread_t server_thread;
 
@@ -60,7 +60,7 @@ void *accept_clients(void *args)
             continue;
         }
 
-        if (listen(serv_sock, MAX_CONN_QUEUE) == -1) {
+        if (listen(serv_sock, BACKLOG) == -1) {
             log_err("Failed to listen for connections on the socket");
             close(serv_sock);
             continue;

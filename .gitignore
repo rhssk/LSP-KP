@@ -55,4 +55,7 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+lib
+bin
+
 # End of https://www.gitignore.io/api/c
