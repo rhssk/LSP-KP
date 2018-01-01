@@ -6,6 +6,7 @@
 #include "debug_macros.h"
 #include "packets.h"
 #include "common.h"
+#include "interface.h"
 #include "client.h"
 
 #define BUFFER_SIZE 255
@@ -14,6 +15,8 @@ void init_client(const char *address, const char *port)
 {
     int serv_sock, status;
     struct addrinfo hints, *res, *p = NULL;
+
+    init_screen();
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC; /* Don't care about IP version */
