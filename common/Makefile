@@ -19,8 +19,15 @@ ARFLAGS := rs
 ## Language standard
 CXXFLAGS := -std=gnu89
 
-# Debug build - no optimizations
-ifeq ($(BUILD),debug)
+## Release build - full optimization, native build and strip debug symbols
+ifeq ($(BUILD),release)
+	CXXFLAGS += -O3 -march=native -s -DNDEBUG
+	## Optimization options
+	CXXFLAGS += -fstack-protector-all -fstack-protector-strong \
+				-fstrict-aliasing
+	#
+else
+	# Debug build - no optimizations
 	CXXFLAGS += -O0 -DDEBUG
 	## -no-pie for recent gcc versions:
 	## https://bugs.launchpad.net/ubuntu/+source/gcc-6/+bug/1678510
@@ -37,33 +44,19 @@ ifeq ($(BUILD),debug)
 				-Wno-unused-but-set-variable -Wmaybe-uninitialized
 	#
 	LDFLAGS += -z now
-else
-	## Release build - full optimization, native build and strip debug symbols
-	CXXFLAGS += -O3 -march=native -s
-	## Optimization options
-	CXXFLAGS += -fstack-protector-all -fstack-protector-strong \
-				-fstrict-aliasing
-	#
 endif
 
-.PHONY: clean run release debug all
+.PHONY: clean release all
 
 all: $(TARGET)
-
-debug_header:
-	@echo "================================================="
-	@echo "Debug build initiated..."
-	@echo "--------"
-
-debug: clean debug_header
-	$(MAKE) "BUILD=debug"
 
 release_header:
 	@echo "================================================="
 	@echo "Release build initiated..."
 	@echo "--------"
 
-release: release_header all
+release: clean release_header
+	$(MAKE) "BUILD=release"
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 	@echo "================================================="
