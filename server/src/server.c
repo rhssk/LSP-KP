@@ -4,12 +4,11 @@
 #include <netdb.h>
 #include <pthread.h>
 #include "debug_macros.h"
-#include "packets.h"
 #include "common.h"
+#include "game.h"
 #include "server.h"
 
 #define BACKLOG 5
-#define BUFFER_SIZE 255
 
 void init_server(const char *port)
 {
@@ -126,7 +125,7 @@ error:
 void *service_client(void *args)
 {
     int sock;
-    char *msg = NULL;
+    void *msg = NULL;
     worker_args_t *wa;
 
     wa = (worker_args_t *) args;
@@ -136,15 +135,7 @@ void *service_client(void *args)
     check(pthread_detach(pthread_self()) == 0,
           "Failed to detach current thread");
 
-    msg = malloc(BUFFER_SIZE);
-    while (1) {
-        if (recv_msg(sock, msg, BUFFER_SIZE) == -1) goto error;
-
-        strcpy(msg, "SERVER ANSWER");
-        if (send_msg(sock, msg, BUFFER_SIZE) == -1) goto error;
-    }
-
-
+    join_player(sock);
 error:
     if (!msg) free(msg);
     pthread_exit(NULL);

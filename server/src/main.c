@@ -2,11 +2,12 @@
 #include "debug_macros.h"
 #include "common.h"
 #include "server.h"
+#include "game.h"
 #include "main.h"
 
 #define PORT_SIZE 6
 
-void print_help(void)
+void print_help()
 {
     printf("This is help!\n");
 }
@@ -46,6 +47,7 @@ int main(int argc, char **argv)
 
     /* See if mandatory arguments have been provided */
     check(port[0] != '\0', "A port number needs to be specified");
+    init_game(); // Create shared memory before serving clients
     init_server(port);
 
     return 0;
