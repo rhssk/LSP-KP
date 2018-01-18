@@ -87,16 +87,24 @@ void join_request(int sock, void *packet)
     } else if (server_status == S_IN_GAME) {
         response.response_code = S_IN_GAME;
         debug("Join request denied, a game is in progress");
+
+// Allow to connect from the same IP multiple times when running in debug mode
+#ifndef DEBUG
     } else if (player_exists(ipstr) == 0) {
-        join_request_t request;
+#else
+    }
+#endif /* DEBUG */
         memcpy(&request, packet, sizeof(request));
         player_id = add_player(&request, ipstr);
         response.player_id = player_id;
         response.response_code = S_OK;
+#ifndef DEBUG
     } else {
         response.response_code = S_ALREADY_CONNECTED;
         debug("Join request denied, player is already connected");
     }
+#endif /* DEBUG */
+
     free(ipstr);
 }
 
