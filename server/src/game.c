@@ -9,9 +9,9 @@
 
 lobby_status_t *lobby;
 char *player_ip[MAX_PLAYERS];
-player_ip_id_t *players_ip_id[MAX_PLAYERS];
-uint8_t server_status;
-uint8_t data_lock;
+players_local_t *players_local[MAX_PLAYERS];
+uint8_t *server_status;
+uint8_t *data_lock;
 
 // Create shared memory which will be seen and used by all server instances
 void init_game()
@@ -116,7 +116,7 @@ uint8_t player_exists(char *ipstr)
         return 0;
 
     for (i = 0; i < lobby->player_count; ++i) {
-        if (strcmp(ipstr, players_ip_id[i]->ip) == 0) {
+        if (strcmp(ipstr, players_local[i]->ip) == 0) {
             return 1;
         }
     }
@@ -127,7 +127,7 @@ uint8_t player_exists(char *ipstr)
 uint8_t add_player(join_request_t *request, char *ipstr)
 {
     char *ip;
-    player_ip_id_t *pl;
+    players_local_t *pl;
     player_status_t *player;
 
     player = malloc(sizeof(*player));
@@ -149,7 +149,7 @@ uint8_t add_player(join_request_t *request, char *ipstr)
     pl->ip = malloc(INET6_ADDRSTRLEN);
     memcpy(pl->ip, ipstr, INET6_ADDRSTRLEN);
     pl->id = player->player_id;
-    players_ip_id[player->player_id] = pl;
+    players_local[player->player_id] = pl;
 
     return player->player_id;
 }
@@ -158,9 +158,9 @@ void remove_player(uint8_t player_id)
 {
     free(lobby->players[player_id]);
 
-    free(players_ip_id[player_id]->ip);
-    free(players_ip_id[player_id]);
-    players_ip_id[player_id] = NULL;
+    free(players_local[player_id]->ip);
+    free(players_local[player_id]);
+    players_local[player_id] = NULL;
 
     lobby->player_count--;
     log_info("Player %u has left the lobby", player_id);
@@ -174,9 +174,9 @@ uint8_t find_player_by_ip(char *ipstr, uint8_t *found)
         return 0;
 
     for (i = 0; i < MAX_PLAYERS; ++i) {
-        if (players_ip_id[i] != NULL && strcmp(ipstr, players_ip_id[i]->ip) == 0) {
+        if (players_local[i] != NULL && strcmp(ipstr, players_local[i]->ip) == 0) {
             *found = 1;
-            return players_ip_id[i]->id;
+            return players_local[i]->id;
         }
     }
     return 0;
