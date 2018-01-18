@@ -24,6 +24,9 @@ void init_game()
 
 void join_player(int sock)
 {
+    uint8_t id, found;
+    int port;
+    char *ipstr;
     void *msg;
 
     msg = malloc(BUFFER_SIZE);
@@ -35,10 +38,6 @@ void join_player(int sock)
     return;
 error:
     ;
-    uint8_t id, found = 0;
-    int port;
-    char *ipstr;
-
     ipstr = malloc(INET6_ADDRSTRLEN);
     get_remote_ip_port(sock, ipstr, &port);
     id = find_player_by_ip(ipstr, &found);
@@ -76,11 +75,11 @@ void join_request(int sock, void *packet)
     char *ipstr;
     int port;
     uint8_t player_id;
+    join_response_t response;
 
     ipstr = malloc(INET6_ADDRSTRLEN);
     get_remote_ip_port(sock, ipstr, &port);
 
-    join_response_t response;
     response.packet_id = P_JOIN_RESPONSE;
     if (server_status == S_FULL) {
         response.response_code = S_FULL;
@@ -103,10 +102,11 @@ void join_request(int sock, void *packet)
 
 uint8_t player_exists(char *ipstr)
 {
+    size_t i;
+
     if (lobby->player_count == 0)
         return 0;
 
-    size_t i;
     for (i = 0; i < lobby->player_count; ++i) {
         if (strcmp(ipstr, players_ip_id[i]->ip) == 0) {
             return 1;
@@ -118,6 +118,8 @@ uint8_t player_exists(char *ipstr)
 
 uint8_t add_player(join_request_t *request, char *ipstr)
 {
+    char *ip;
+    player_ip_id_t *pl;
     player_status_t *player;
 
     player = malloc(sizeof(*player));
@@ -131,11 +133,10 @@ uint8_t add_player(join_request_t *request, char *ipstr)
     log_info("Player %u has joined the lobby", player->player_id);
 
     // Save player IP
-    char *ip = malloc(sizeof(*ip) * INET6_ADDRSTRLEN);
+    ip = malloc(sizeof(*ip) * INET6_ADDRSTRLEN);
     memcpy(ip, ipstr, sizeof(*ip) * INET6_ADDRSTRLEN);
     player_ip[player->player_id] = ip;
 
-    player_ip_id_t *pl;
     pl = malloc(sizeof(*pl));
     pl->ip = malloc(INET6_ADDRSTRLEN);
     memcpy(pl->ip, ipstr, INET6_ADDRSTRLEN);
@@ -159,10 +160,11 @@ void remove_player(uint8_t player_id)
 
 uint8_t find_player_by_ip(char *ipstr, uint8_t *found)
 {
+    size_t i;
+
     if (lobby->player_count == 0)
         return 0;
 
-    size_t i;
     for (i = 0; i < MAX_PLAYERS; ++i) {
         if (strcmp(ipstr, players_ip_id[i]->ip) == 0) {
             *found = 1;

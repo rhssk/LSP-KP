@@ -14,6 +14,8 @@ void print_help()
 
 int main(int argc, char **argv)
 {
+    int i;
+
     /* Can hold only IPv4 addresses */
     char port[PORT_SIZE];
 
@@ -26,7 +28,6 @@ int main(int argc, char **argv)
     }
 
     /* Parse command line arguments */
-    int i;
     for (i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-h") == 0 ||
             strcmp(argv[i], "--help") == 0) {

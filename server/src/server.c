@@ -25,7 +25,7 @@ error:
 
 void *accept_clients(void *args)
 {
-    int serv_sock, status;
+    int serv_sock, status, reuse_addr;
     struct addrinfo hints, *res, *p = NULL;
 
     memset(&hints, 0, sizeof hints);
@@ -45,7 +45,7 @@ void *accept_clients(void *args)
             continue;
         }
 
-        int reuse_addr = 1;
+        reuse_addr = 1;
         if (setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR,
                        &reuse_addr, sizeof(int)) == -1) {
             log_err("Failed set address for socket as reusable");

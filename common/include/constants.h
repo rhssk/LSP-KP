@@ -10,7 +10,7 @@ enum server_response {
     S_OK,                   // Client successfully connected
     S_IN_GAME,              // A game is already in progress
     S_FULL,                 // Server is full
-    S_ALREADY_CONNECTED,    // Client is already connected to the server
+    S_ALREADY_CONNECTED    // Client is already connected to the server
 };
 
 enum packet_ids {
@@ -24,7 +24,7 @@ enum packet_ids {
     P_GAME_START = 8,
     P_MAP_UPDATE = 9,
     P_OBJECTS = 10,
-    P_GAME_OVER = 11,
+    P_GAME_OVER = 11
 };
 
 /*********************************************************************/
