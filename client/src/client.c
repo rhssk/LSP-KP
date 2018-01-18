@@ -43,7 +43,7 @@ void init_client(const char *address, const char *port)
     check(p != NULL,
           "Failed to get any usable sockets");
 
-    debug("Connction with server established");
+    debug("Connection with server established");
     if (talk_to_server(serv_sock) == -1) {
         close(serv_sock);
         goto error;
