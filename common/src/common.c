@@ -41,10 +41,7 @@ void get_remote_ip_port(const int sock, char *ipstr, int *port)
     socklen_t len;
     struct sockaddr_storage addr;
 
-    /* Not enough space to safely save the IP address */
-    if (strlen(ipstr) < INET6_ADDRSTRLEN) return;
-
-    len = sizeof addr;
+    len = sizeof(addr);
     getpeername(sock, (struct sockaddr *)&addr, &len);
 
     /* Deal with both IPv4 and IPv6: */
@@ -74,7 +71,7 @@ int recv_msg(const int remote, void *data, const size_t size)
     }
     check(bytes >= 0, "Failed to read data from remote(%s:%d)", ipstr, port);
 
-    debug("RECEIVED DATA FROM REMOTE(%s:%d)", ipstr, port);
+    debug("RECEIVED DATA FROM REMOTE(%s:%d): %s", ipstr, port, data);
 
     return 0;
 error:
@@ -95,7 +92,7 @@ int send_msg(const int remote, void *data, const size_t size)
     }
     check(bytes >= 0, "Failed to write data to remote(%s:%d)", ipstr, port);
 
-    debug("SENT DATA TO REMOTE(%s:%d)", ipstr, port);
+    debug("SENT DATA TO REMOTE(%s:%d): %s", ipstr, port, data);
 
     return 0;
 error:

@@ -139,11 +139,9 @@ void *service_client(void *args)
     msg = malloc(BUFFER_SIZE);
     while (1) {
         if (recv_msg(sock, msg, BUFFER_SIZE) == -1) goto error;
-        debug("SENT MSG: %s", msg);
 
         strcpy(msg, "SERVER ANSWER");
         if (send_msg(sock, msg, BUFFER_SIZE) == -1) goto error;
-        debug("RECEIVED MSG: %s", msg);
     }
 
 
