@@ -60,11 +60,14 @@ typedef struct {
 
 typedef struct {
     uint8_t packet_id;
+
     uint8_t player_count;
     player_pos_t **players; // List of players with their positions
+
     uint8_t field_width;
     uint8_t field_height;
     uint16_t field_contents; // List of field objects (walls, boxes etc.)
+
     uint8_t dynamite_time;
 } game_start_t;
 /*********************************************************************/
@@ -111,12 +114,16 @@ typedef struct {
 typedef struct {
     uint8_t packet_id;
     int16_t timer;
+
     uint8_t dynamite_count;
     dynamite_t **dynamites;
+
     uint8_t flame_count;
     flame_t **flames;
+
     uint8_t powerup_count;
     powerup_t **powerups;
+
     uint8_t player_count;
     player_active_status_t **players;
 } objects_t;
