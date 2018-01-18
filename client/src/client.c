@@ -4,7 +4,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include "debug_macros.h"
-#include "packets.h"
+#include "constants.h"
 #include "common.h"
 #include "client.h"
 
@@ -55,8 +55,13 @@ error:
 int talk_to_server(int serv_sock)
 {
     char *msg = malloc(BUFFER_SIZE);
+
     while (1) {
-        fgets(msg, BUFFER_SIZE, stdin);
+        join_request_t join_request;
+        join_request.packet_id = P_JOIN_REQUEST;
+
+        memset(msg, '\0', BUFFER_SIZE); // Clear msg
+        memcpy(msg, &join_request, sizeof(join_request));
         if (send_msg(serv_sock, msg, BUFFER_SIZE) == -1) goto error;
 
         memset(msg, '\0', BUFFER_SIZE);

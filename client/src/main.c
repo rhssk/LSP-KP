@@ -7,7 +7,7 @@
 
 #define PORT_SIZE 6
 
-void print_help(void)
+void print_help()
 {
     printf("This is help!\n");
 }
