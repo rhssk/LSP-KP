@@ -71,7 +71,7 @@ int recv_msg(const int remote, void *data, const size_t size)
     }
     check(bytes >= 0, "Failed to read data from remote(%s:%d)", ipstr, port);
 
-    debug("RECEIVED DATA FROM REMOTE(%s:%d): %s", ipstr, port, data);
+    debug("RECEIVED FROM REMOTE(%s:%d)", ipstr, port);
 
     return 0;
 error:
@@ -92,7 +92,7 @@ int send_msg(const int remote, void *data, const size_t size)
     }
     check(bytes >= 0, "Failed to write data to remote(%s:%d)", ipstr, port);
 
-    debug("SENT DATA TO REMOTE(%s:%d): %s", ipstr, port, data);
+    debug("SENT TO REMOTE(%s:%d)", ipstr, port);
 
     return 0;
 error:

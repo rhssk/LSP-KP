@@ -1,9 +1,31 @@
-#ifndef PACKETS_H
-#define PACKETS_H
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
 
 #include <stdint.h>
 
-#define PLAYER_NAME_LENGTH 23 // Without ending \0
+#define PLAYER_NAME_LENGTH  23 // Without ending \0
+#define MAX_PLAYERS         255 // The maximum player_id number
+
+enum server_response {
+    S_OK,                   // Client successfully connected
+    S_IN_GAME,              // A game is already in progress
+    S_FULL,                 // Server is full
+    S_ALREADY_CONNECTED,    // Client is already connected to the server
+};
+
+enum packet_ids {
+    P_JOIN_REQUEST = 1,
+    P_JOIN_RESPONSE = 2,
+    P_KEEP_ALIVE = 3,
+    P_PLAYER_READY = 4,
+    P_PLAYER_INPUT = 5,
+    P_DISCONNECT = 6,
+    P_LOBBY_STATUS = 7,
+    P_GAME_START = 8,
+    P_MAP_UPDATE = 9,
+    P_OBJECTS = 10,
+    P_GAME_OVER = 11,
+};
 
 /*********************************************************************/
 typedef struct {
@@ -26,7 +48,7 @@ typedef struct {
 typedef struct {
     uint8_t packet_id;
     uint8_t player_count;
-    player_status_t **players; // List of players with their statuses
+    player_status_t *players[MAX_PLAYERS]; // List of players with their statuses
 } lobby_status_t;
 /*********************************************************************/
 typedef struct {
@@ -62,7 +84,7 @@ typedef struct {
     uint8_t packet_id;
 
     uint8_t player_count;
-    player_pos_t **players; // List of players with their positions
+    player_pos_t *players[MAX_PLAYERS]; // List of players with their positions
 
     uint8_t field_width;
     uint8_t field_height;
@@ -125,7 +147,7 @@ typedef struct {
     powerup_t **powerups;
 
     uint8_t player_count;
-    player_active_status_t **players;
+    player_active_status_t *players[MAX_PLAYERS];
 } objects_t;
 /*********************************************************************/
 typedef struct {
@@ -134,4 +156,4 @@ typedef struct {
     uint8_t *player_ids;
 } game_over;
 
-#endif /* PACKETS_H */
+#endif /* CONSTANTS_H */
