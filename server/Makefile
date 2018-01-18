@@ -17,7 +17,7 @@ CXXFLAGS := -std=gnu89
 
 ## Release build - full optimization, native build and strip debug symbols
 ifeq ($(BUILD),release)
-	CXXFLAGS += -O3 -march=native -s -DNDEBUG
+	CXXFLAGS += -O3 -march=native -s -DNDEBUG -pedantic
 	## Optimization options
 	CXXFLAGS += -fstack-protector-all -fstack-protector-strong \
 				-fstrict-aliasing
