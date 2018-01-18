@@ -149,10 +149,10 @@ uint8_t add_player(join_request_t *request, char *ipstr)
 void remove_player(uint8_t player_id)
 {
     free(lobby->players[player_id]);
-    free(player_ip[player_id]);
 
     free(players_ip_id[player_id]->ip);
     free(players_ip_id[player_id]);
+    players_ip_id[player_id] = NULL;
 
     lobby->player_count--;
     log_info("Player %u has left the lobby", player_id);
@@ -166,7 +166,7 @@ uint8_t find_player_by_ip(char *ipstr, uint8_t *found)
         return 0;
 
     for (i = 0; i < MAX_PLAYERS; ++i) {
-        if (strcmp(ipstr, players_ip_id[i]->ip) == 0) {
+        if (players_ip_id[i] != NULL && strcmp(ipstr, players_ip_id[i]->ip) == 0) {
             *found = 1;
             return players_ip_id[i]->id;
         }
