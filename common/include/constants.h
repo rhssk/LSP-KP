@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define PLAYER_NAME_LENGTH  23 // Without ending \0
+#define PLAYER_TIMEOUT      10
 #define MAX_PLAYERS         255 // The maximum player_id number
 
 enum server_response {

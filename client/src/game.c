@@ -1,15 +1,17 @@
 #include <unistd.h>
+#include <fcntl.h>
 #include <time.h>
 #include "debug_macros.h"
 #include "constants.h"
 #include "common.h"
 #include "game.h"
 
-#define SERVER_TIMEOUT  1 // Time to wait for server response
-#define BUFFER_SIZE     255
+#define SERVER_TIMEOUT      1 // Time to wait for server response
+#define BUFFER_SIZE         255
 
 int sock;
-uint8_t player_id;
+uint8_t player_id, needs_keeping_alive;
+time_t timeout_start;
 
 int talk_to_server(int serv_sock)
 {
@@ -17,10 +19,14 @@ int talk_to_server(int serv_sock)
     join_request_t join_request;
     char *msg = malloc(BUFFER_SIZE);
     char input[BUFFER_SIZE];
-    char *input_result;
     char player_name[PLAYER_NAME_LENGTH + 2];
     size_t name_length;
+    ssize_t input_read_b;
+    time_t timeout_end;
+    double time_diff, time_precision;
 
+    time_precision = 0.01;
+    time(&timeout_start);
     sock = serv_sock;
 
     printf("Enter your user name:\n");
@@ -37,37 +43,58 @@ int talk_to_server(int serv_sock)
         }
     }
 
-    // Join request
-    memset(msg, '\0', BUFFER_SIZE); // Clear msg
-    join_request.packet_id = P_JOIN_REQUEST;
-    strcpy(join_request.player_name, player_name);
-    memcpy(msg, &join_request, sizeof(join_request));
-    // Ask to join lobby every 10s in case of ongoing game etc.
-    while ((ret = send_msg(sock, msg, BUFFER_SIZE, SERVER_TIMEOUT)) != C_OK) {
-        sleep(1);
-    }
+    // Don't block if no input from stdin was received
+    fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
 
     while (1) {
+        // Join request
+        memset(msg, '\0', BUFFER_SIZE); // Clear msg
+        join_request.packet_id = P_JOIN_REQUEST;
+        strcpy(join_request.player_name, player_name);
+        memcpy(msg, &join_request, sizeof(join_request));
+        // Ask to join lobby or just get a fresh server status
+        ret = send_msg(sock, msg, BUFFER_SIZE, SERVER_TIMEOUT);
+        if (ret != C_OK) goto error;
         ret = recv_msg(sock, msg, BUFFER_SIZE, SERVER_TIMEOUT);
+        if (ret != C_OK) goto error;
+        handle_packet(msg);
+
+        debug("Needs keeping alive: %u", needs_keeping_alive);
+        if (needs_keeping_alive) {
+            time(&timeout_end);
+            // Add 2 seconds because of sleep and SERVER_TIMEOUTS
+            time_diff = difftime(timeout_end, timeout_start) + 2;
+            if (time_diff - PLAYER_TIMEOUT > time_precision) {
+                keep_alive();
+                ret = recv_msg(sock, msg, BUFFER_SIZE, SERVER_TIMEOUT);
+                if (ret == C_OK)
+                    handle_packet(msg);
+                // Reset timer start
+                time(&timeout_start);
+            }
+        }
+
+        // 1s to allow to enter a command. In reality it's simply a loop delay
+        // because user input gets buffered and persists between loop iterations
+        sleep(1);
+        input_read_b = read(0, input, BUFFER_SIZE);
+        if (input_read_b > 0) {
+            // Remove newline
+            input[input_read_b - 1] = '\0';
+            // End program if received Q
+            if (strcmp(input, "Q") == 0) {
+                log_info("Disconnecting");
+                disconnect();
+                // Skip check for connection errors
+                ret = C_OK;
+                goto error;
+            }
+            handle_input(input);
+        }
+
         // Dont' care if receiving gets a time-out
         if (ret != C_OK && ret != C_TIMEOUT)
             goto error;
-        if (ret == C_OK)
-            handle_packet(msg);
-
-        input_result = fgets(input, BUFFER_SIZE, stdin);
-        // Ctrl+D by user, end program
-        if (input_result == NULL) {
-            log_info("Disconnecting");
-            disconnect();
-            // Skip check for connection errors
-            ret = C_OK;
-            goto error;
-        } else {
-            // Remove newline
-            input[strlen(input) - 1] = '\0';
-        }
-        handle_input(input);
     }
 
 error:
@@ -113,8 +140,15 @@ void handle_packet(void *packet)
     return;
 }
 
-void keep_alive()
+void keep_alive(void)
 {
+    keep_alive_t ka;
+
+    ka.packet_id = P_KEEP_ALIVE;
+    ka.player_id = player_id;
+
+    send_msg(sock, &ka, BUFFER_SIZE, SERVER_TIMEOUT);
+    debug("Sent keep alive request");
 
 }
 
@@ -123,21 +157,26 @@ void join_response(void *packet)
     join_response_t response;
 
     memcpy(&response, packet, sizeof(response));
+    debug("join response code: %d", response.response_code);
+    if (response.response_code == S_WAITING ||
+        response.response_code == S_IN_GAME) {
+        needs_keeping_alive = 1;
+        return;
+    }
     if (response.response_code == S_OK)
         player_id = response.player_id;
-    else
-        keep_alive();
-
+    needs_keeping_alive = 0;
 }
 
 void lobby_status(void *packet)
 {
-
+    debug("Received lobby status");
 }
 
 void game_start(void *packet)
 {
 
+    debug("Game has started");
 }
 
 void map_update(void *packet)
@@ -155,7 +194,7 @@ void game_over(void *packet)
 
 }
 
-void disconnect()
+void disconnect(void)
 {
     disconnect_t discon;
     discon.packet_id = P_DISCONNECT;
@@ -164,12 +203,11 @@ void disconnect()
     send_msg(sock, &discon, BUFFER_SIZE, SERVER_TIMEOUT);
 }
 
-void player_ready()
+void player_ready(void)
 {
     player_ready_t ready;
     ready.packet_id = P_PLAYER_READY;
     ready.player_id = player_id;
-    printf("ID: %u\n", ready.player_id);
     debug("Asked to be marked as ready");
 
     send_msg(sock, &ready, BUFFER_SIZE, SERVER_TIMEOUT);
@@ -177,7 +215,7 @@ void player_ready()
 
 void handle_input(char *input)
 {
-    if (strcmp(input, "READY") == 0) {
+    if (strcmp(input, "R") == 0) {
         player_ready();
     }
 }
