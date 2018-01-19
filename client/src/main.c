@@ -7,15 +7,30 @@
 
 #define PORT_SIZE 6
 
-void print_help()
+void print_help(void)
 {
-    printf("\
+    printf("Usage: ./client -a/--address SERVER_IP -p/--port SERVER_PORT_NUM\n\
 Enter name to request a place in lobby\n\
-Ctrl+D to disconnect\n");
+\n\
+Keybindings (all keys sent by pressing Enter):\n\
+R           - tell server that you're ready to play\n\
+Ctrl+D or Q - disconnect\n\
+UP or W     - move up\n\
+DOWN or S   - move down\n\
+LEFT or A   - move left\n\
+RIGHT or D  - move right\n\
+P           - plant a dynamite\n\
+D           - detonate all planted dynamites\n\
+G           - pick up dynamite from the ground\n\
+T           - taunt\n\
+L           - laugh\n\
+F           - dance\n\
+");
 }
 
 int main(int argc, char **argv)
 {
+    int i;
     /* Can hold only IPv4 addresses */
     char address[INET_ADDRSTRLEN];
     char port[PORT_SIZE];
@@ -30,7 +45,6 @@ int main(int argc, char **argv)
     }
 
     /* Parse command line arguments */
-    int i;
     for (i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-h") == 0 ||
             strcmp(argv[i], "--help") == 0) {
