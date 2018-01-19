@@ -154,7 +154,6 @@ uint8_t add_player(join_request_t *request, int sock)
     log_info("%s (id: %u) has joined the lobby", player->player_name,
              player->player_id);
 
-    // Save player IP and port
     pl = malloc(sizeof(*pl));
 
     // Set start for player timeout
