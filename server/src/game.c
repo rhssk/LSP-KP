@@ -6,7 +6,6 @@
 
 #define BUFFER_SIZE     255
 #define LOBBY_WAIT_TIME 30
-#define PLAYER_TIMEOUT  10
 
 // Shared variables
 lobby_status_t *lobby;
@@ -14,10 +13,13 @@ players_local_t *players_local[MAX_PLAYERS];
 uint8_t *server_status;
 uint8_t *data_lock;
 
+int sock; // kept in stack so different for each thread
+
 // Create shared memory which will be seen and used by all server instances
-void init_game()
+void init_game(void)
 {
     lobby = malloc(sizeof(*lobby));
+    lobby->packet_id = P_LOBBY_STATUS;
     lobby->player_count = 0;
     server_status = malloc(sizeof(*server_status));
     data_lock = malloc(sizeof(*data_lock));
@@ -25,12 +27,15 @@ void init_game()
     *data_lock = 0;
 }
 
-void register_player(int sock)
+void register_player(int client_sock)
 {
     uint8_t id, found;
     int port, ret, packet_handle_ret;
     char *ipstr;
     void *msg;
+
+    sock = client_sock;
+    printf("sock: %d\n", sock);
 
     ipstr = malloc(INET6_ADDRSTRLEN);
     get_remote_ip_port(sock, ipstr, &port);
@@ -39,21 +44,19 @@ void register_player(int sock)
     ret = recv_msg(sock, msg, BUFFER_SIZE, PLAYER_TIMEOUT);
     // Gets updated when client responds
     while (1) {
-        if (ret == C_TIMEOUT) {
-            log_info("%s:%d disconnected for inactivity", ipstr, port);
-            goto error;
-        }
-        packet_handle_ret = handle_packet(sock, msg);
+        packet_handle_ret = handle_packet(msg);
         if (packet_handle_ret == -1) goto error;
 
         // Gets updated every second
         while (1) {
             // Timeout every 1s to allow the rest of logic to execute
             ret = recv_msg(sock, msg, BUFFER_SIZE, 1);
-            // Check if player should get a timeout
-            if (timeout_player(sock) == 1) {
-                log_info("%s:%d disconnected for inactivity", ipstr, port);
-                goto error;
+            if (*server_status == S_WAITING || *server_status == S_IN_GAME) {
+                // Check if player should get a timeout
+                if (timeout_player() == 1) {
+                    log_info("%s:%d disconnected for inactivity", ipstr, port);
+                    goto error;
+                }
             }
 
             if (ret == C_DISCONNECT) {
@@ -67,7 +70,7 @@ void register_player(int sock)
     return;
 error:
     ;
-    id = find_player_by_ip(ipstr, &found);
+    id = find_player_by_conn(&found);
     if (found == 1) remove_player(id);
 
     free(ipstr);
@@ -75,26 +78,26 @@ error:
     pthread_exit(NULL);
 }
 
-int handle_packet(int sock, void *packet)
+int handle_packet(void *packet)
 {
     uint8_t packet_id;
 
     packet_id = *((uint8_t *)packet) & 0xFF; // Get the first byte
     switch (packet_id) {
     case P_JOIN_REQUEST:
-        join_request(sock, packet);
+        join_request(packet);
         break;
     case P_KEEP_ALIVE:
-        keep_alive(sock, packet);
+        keep_alive(packet);
         break;
     case P_DISCONNECT:
         return -1;
         break;
     case P_PLAYER_READY:
-        player_ready(sock, packet);
+        player_ready(packet);
         break;
     default:
-        debug("Received packet with unrecognized id");
+        debug("Received packet with unrecognized id: %d", packet_id);
         break;
     }
 
@@ -103,16 +106,11 @@ int handle_packet(int sock, void *packet)
 
 /****************************************************************************/
 
-void join_request(int sock, void *packet)
+void join_request(void *packet)
 {
-    char *ipstr;
-    int port;
     uint8_t player_id;
     join_response_t response;
     join_request_t request;
-
-    ipstr = malloc(INET6_ADDRSTRLEN);
-    get_remote_ip_port(sock, ipstr, &port);
 
     response.packet_id = P_JOIN_RESPONSE;
     if (*server_status == S_FULL) {
@@ -124,49 +122,28 @@ void join_request(int sock, void *packet)
     } else if (*server_status == S_PREPARING) {
         response.response_code = S_PREPARING;
         debug("Join request denied, preparing to start the game");
-
-// Allow to connect from the same IP multiple times when running in debug mode
-#ifndef DEBUG
-    } else if (player_exists(ipstr) == 0) {
-#else
-    }
-#endif /* DEBUG */
-        if (*server_status == S_WAITING) {
+    } else if (*server_status == S_WAITING) {
+        uint8_t found;
+        find_player_by_conn(&found);
+        if (found == 0) {
+            debug("Join request accepted");
             memcpy(&request, packet, sizeof(request));
-            player_id = add_player(sock, &request, ipstr);
+            player_id = add_player(&request);
+            send_updated_lobby();
             response.player_id = player_id;
             response.response_code = S_OK;
+        } else {
+            response.response_code = S_WAITING;
         }
-#ifndef DEBUG
-    } else
-    {
+    } else {
         response.response_code = S_ALREADY_CONNECTED;
         debug("Join request denied, player is already connected");
     }
-#endif /* DEBUG */
 
     send_msg(sock, &response, BUFFER_SIZE, -1);
-
-    free(ipstr);
 }
 
-uint8_t player_exists(char *ipstr)
-{
-    size_t i;
-
-    if (lobby->player_count == 0)
-        return 0;
-
-    for (i = 0; i < lobby->player_count; ++i) {
-        if (strcmp(ipstr, players_local[i]->ip) == 0) {
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-uint8_t add_player(int sock, join_request_t *request, char *ipstr)
+uint8_t add_player(join_request_t *request)
 {
     players_local_t *pl;
     player_status_t *player;
@@ -182,11 +159,8 @@ uint8_t add_player(int sock, join_request_t *request, char *ipstr)
     log_info("%s (id: %u) has joined the lobby", player->player_name,
              player->player_id);
 
-    // Save player IP
+    // Save player IP and port
     pl = malloc(sizeof(*pl));
-    pl->ip = malloc(INET6_ADDRSTRLEN);
-    memcpy(pl->ip, ipstr, INET6_ADDRSTRLEN);
-    pl->id = player->player_id;
 
     // Set start for player timeout
     time(&pl->timeout_start);
@@ -194,6 +168,7 @@ uint8_t add_player(int sock, join_request_t *request, char *ipstr)
     // Save sock (used for identification between threads)
     pl->sock = sock;
 
+    pl->id = player->player_id;
     players_local[player->player_id] = pl;
 
     return player->player_id;
@@ -207,14 +182,13 @@ void remove_player(uint8_t player_id)
 
     free(lobby->players[player_id]);
 
-    free(players_local[player_id]->ip);
     free(players_local[player_id]);
     players_local[player_id] = NULL;
 
     lobby->player_count--;
 }
 
-uint8_t find_player_by_ip(char *ipstr, uint8_t *found)
+uint8_t find_player_by_conn(uint8_t *found)
 {
     size_t i;
 
@@ -222,7 +196,7 @@ uint8_t find_player_by_ip(char *ipstr, uint8_t *found)
         return 0;
 
     for (i = 0; i < MAX_PLAYERS; ++i) {
-        if (players_local[i] != NULL && strcmp(ipstr, players_local[i]->ip) == 0) {
+        if (players_local[i] != NULL && players_local[i]->sock == sock) {
             *found = 1;
             return players_local[i]->id;
         }
@@ -233,7 +207,7 @@ uint8_t find_player_by_ip(char *ipstr, uint8_t *found)
 /****************************************************************************/
 // Keep alive
 
-void keep_alive(int sock, void *packet)
+void keep_alive(void *packet)
 {
     size_t i;
 
@@ -244,7 +218,7 @@ void keep_alive(int sock, void *packet)
     }
 }
 
-int timeout_player(int sock)
+int timeout_player(void)
 {
     time_t current_time;
     double time_diff, time_precision;
@@ -269,7 +243,7 @@ int timeout_player(int sock)
 /****************************************************************************/
 // Mark player in lobby as ready
 
-void player_ready(int sock, void *packet)
+void player_ready(void *packet)
 {
     uint8_t player_id;
     size_t i;
@@ -281,7 +255,23 @@ void player_ready(int sock, void *packet)
         if (i == player_id) {
             debug("%u marked as ready", player_id);
             lobby->players[i]->player_status = PL_READY;
+            send_updated_lobby();
             break;
         }
+    }
+}
+
+/****************************************************************************/
+// Send the updated lobby to all players in the lobby
+
+void send_updated_lobby(void)
+{
+    int client_sock;
+    size_t i;
+
+    debug("Sending lobby status");
+    for (i = 0; i < lobby->player_count; i++) {
+        client_sock = players_local[i]->sock;
+        send_msg(client_sock, lobby, BUFFER_SIZE, -1);
     }
 }

@@ -7,9 +7,9 @@
 
 #define PORT_SIZE 6
 
-void print_help()
+void print_help(void)
 {
-    printf("This is help!\n");
+    printf("Usage: ./server -p/--port PORT_NUM\n");
 }
 
 int main(int argc, char **argv)

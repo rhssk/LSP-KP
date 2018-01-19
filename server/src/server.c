@@ -125,7 +125,6 @@ error:
 void *service_client(void *args)
 {
     int sock;
-    void *msg = NULL;
     worker_args_t *wa;
 
     wa = (worker_args_t *) args;
@@ -137,6 +136,5 @@ void *service_client(void *args)
 
     register_player(sock);
 error:
-    if (!msg) free(msg);
     pthread_exit(NULL);
 }
