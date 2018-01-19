@@ -13,8 +13,6 @@ players_local_t *players_local[MAX_PLAYERS];
 uint8_t *server_status;
 uint8_t *data_lock;
 
-int sock; // kept in stack so different for each thread
-
 // Create shared memory which will be seen and used by all server instances
 void init_game(void)
 {
@@ -27,14 +25,13 @@ void init_game(void)
     *data_lock = 0;
 }
 
-void register_player(int client_sock)
+void register_player(int sock)
 {
     uint8_t id, found;
     int port, ret, packet_handle_ret;
     char *ipstr;
     void *msg;
 
-    sock = client_sock;
     printf("sock: %d\n", sock);
 
     ipstr = malloc(INET6_ADDRSTRLEN);
@@ -44,7 +41,7 @@ void register_player(int client_sock)
     ret = recv_msg(sock, msg, BUFFER_SIZE, PLAYER_TIMEOUT);
     // Gets updated when client responds
     while (1) {
-        packet_handle_ret = handle_packet(msg);
+        packet_handle_ret = handle_packet(msg, sock);
         if (packet_handle_ret == -1) goto error;
 
         // Gets updated every second
@@ -53,7 +50,7 @@ void register_player(int client_sock)
             ret = recv_msg(sock, msg, BUFFER_SIZE, 1);
             if (*server_status == S_WAITING || *server_status == S_IN_GAME) {
                 // Check if player should get a timeout
-                if (timeout_player() == 1) {
+                if (timeout_player(sock) == 1) {
                     log_info("%s:%d disconnected for inactivity", ipstr, port);
                     goto error;
                 }
@@ -70,7 +67,7 @@ void register_player(int client_sock)
     return;
 error:
     ;
-    id = find_player_by_conn(&found);
+    id = find_player_by_conn(sock, &found);
     if (found == 1) remove_player(id);
 
     free(ipstr);
@@ -78,17 +75,17 @@ error:
     pthread_exit(NULL);
 }
 
-int handle_packet(void *packet)
+int handle_packet(void *packet, int sock)
 {
     uint8_t packet_id;
 
     packet_id = *((uint8_t *)packet) & 0xFF; // Get the first byte
     switch (packet_id) {
     case P_JOIN_REQUEST:
-        join_request(packet);
+        join_request(packet, sock);
         break;
     case P_KEEP_ALIVE:
-        keep_alive(packet);
+        keep_alive(packet, sock);
         break;
     case P_DISCONNECT:
         return -1;
@@ -106,7 +103,7 @@ int handle_packet(void *packet)
 
 /****************************************************************************/
 
-void join_request(void *packet)
+void join_request(void *packet, int sock)
 {
     uint8_t player_id;
     join_response_t response;
@@ -124,11 +121,11 @@ void join_request(void *packet)
         debug("Join request denied, preparing to start the game");
     } else if (*server_status == S_WAITING) {
         uint8_t found;
-        find_player_by_conn(&found);
+        find_player_by_conn(&found, sock);
         if (found == 0) {
             debug("Join request accepted");
             memcpy(&request, packet, sizeof(request));
-            player_id = add_player(&request);
+            player_id = add_player(&request, sock);
             send_updated_lobby();
             response.player_id = player_id;
             response.response_code = S_OK;
@@ -143,7 +140,7 @@ void join_request(void *packet)
     send_msg(sock, &response, BUFFER_SIZE, -1);
 }
 
-uint8_t add_player(join_request_t *request)
+uint8_t add_player(join_request_t *request, int sock)
 {
     players_local_t *pl;
     player_status_t *player;
@@ -188,7 +185,7 @@ void remove_player(uint8_t player_id)
     lobby->player_count--;
 }
 
-uint8_t find_player_by_conn(uint8_t *found)
+uint8_t find_player_by_conn(uint8_t *found, int sock)
 {
     size_t i;
 
@@ -207,7 +204,7 @@ uint8_t find_player_by_conn(uint8_t *found)
 /****************************************************************************/
 // Keep alive
 
-void keep_alive(void *packet)
+void keep_alive(void *packet, int sock)
 {
     size_t i;
 
@@ -218,7 +215,7 @@ void keep_alive(void *packet)
     }
 }
 
-int timeout_player(void)
+int timeout_player(int sock)
 {
     time_t current_time;
     double time_diff, time_precision;

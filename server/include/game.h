@@ -13,17 +13,17 @@ typedef struct {
 
 void init_game(void);
 void register_player(int client_sock);
-int handle_packet(void *packet);
+int handle_packet(void *packet, int sock);
 
 // Handle join requests
-void join_request(void *packet);
-uint8_t add_player(join_request_t *request);
+void join_request(void *packet, int sock);
+uint8_t add_player(join_request_t *request, int sock);
 void remove_player(uint8_t player_id);
-uint8_t find_player_by_conn(uint8_t *found);
+uint8_t find_player_by_conn(uint8_t *found, int sock);
 
 // Handle keep alive messages
-void keep_alive(void *packet);
-int timeout_player(void);
+void keep_alive(void *packet, int sock);
+int timeout_player(int sock);
 
 void player_ready(void *packet);
 

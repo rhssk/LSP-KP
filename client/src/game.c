@@ -53,9 +53,10 @@ int talk_to_server(int serv_sock)
         strcpy(join_request.player_name, player_name);
         memcpy(msg, &join_request, sizeof(join_request));
         // Ask to join lobby or just get a fresh server status
-        ret = send_msg(sock, msg, BUFFER_SIZE, SERVER_TIMEOUT);
+        ret = send_msg(sock, msg, BUFFER_SIZE, -1);
         if (ret != C_OK) goto error;
-        ret = recv_msg(sock, msg, BUFFER_SIZE, SERVER_TIMEOUT);
+        memset(msg, '\0', BUFFER_SIZE); // Clear msg
+        ret = recv_msg(sock, msg, BUFFER_SIZE, -1);
         if (ret != C_OK) goto error;
         handle_packet(msg);
 
@@ -140,9 +141,10 @@ void handle_packet(void *packet)
     return;
 }
 
-void keep_alive(void)
+void keep_alive()
 {
     keep_alive_t ka;
+    void *packet;
 
     ka.packet_id = P_KEEP_ALIVE;
     ka.player_id = player_id;
@@ -194,7 +196,7 @@ void game_over(void *packet)
 
 }
 
-void disconnect(void)
+void disconnect()
 {
     disconnect_t discon;
     discon.packet_id = P_DISCONNECT;
@@ -203,7 +205,7 @@ void disconnect(void)
     send_msg(sock, &discon, BUFFER_SIZE, SERVER_TIMEOUT);
 }
 
-void player_ready(void)
+void player_ready()
 {
     player_ready_t ready;
     ready.packet_id = P_PLAYER_READY;
