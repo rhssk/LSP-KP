@@ -32,8 +32,6 @@ void register_player(int sock)
     char *ipstr;
     void *msg;
 
-    printf("sock: %d\n", sock);
-
     ipstr = malloc(INET6_ADDRSTRLEN);
     get_remote_ip_port(sock, ipstr, &port);
 
