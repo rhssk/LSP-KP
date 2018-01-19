@@ -7,10 +7,17 @@
 #define MAX_PLAYERS         255 // The maximum player_id number
 
 enum server_response {
-    S_OK,                   // Client successfully connected
+    S_OK,                   // Client successfully added to lobby
     S_IN_GAME,              // A game is already in progress
     S_FULL,                 // Server is full
-    S_ALREADY_CONNECTED    // Client is already connected to the server
+    S_ALREADY_CONNECTED,    // Client is already connected to the server
+    S_WAITING,              // Server is wating for players
+    S_PREPARING             // Waiting for players to be ready
+};
+
+enum player_status {
+    PL_NOT_READY,
+    PL_READY
 };
 
 enum packet_ids {
@@ -154,6 +161,6 @@ typedef struct {
     uint8_t packet_id;
     uint8_t player_count;
     uint8_t *player_ids;
-} game_over;
+} game_over_t;
 
 #endif /* CONSTANTS_H */

@@ -9,7 +9,9 @@
 
 void print_help()
 {
-    printf("This is help!\n");
+    printf("\
+Enter name to request a place in lobby\n\
+Ctrl+D to disconnect\n");
 }
 
 int main(int argc, char **argv)

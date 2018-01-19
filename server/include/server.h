@@ -1,5 +1,5 @@
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef SERVER_H
+#define SERVER_H
 
 typedef struct worker_args {
     int socket;
@@ -10,4 +10,4 @@ void *accept_clients(void *args);
 int wait_for_client(int serv_sock);
 void *service_client(void *args);
 
-#endif /* MAIN_H */
+#endif /* SERVER_H */

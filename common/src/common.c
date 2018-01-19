@@ -1,5 +1,6 @@
 #include <string.h>
 #include <unistd.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include "debug_macros.h"
@@ -56,45 +57,72 @@ void get_remote_ip_port(const int sock, char *ipstr, int *port)
     }
 }
 
-int recv_msg(const int remote, void *data, const size_t size)
+int recv_msg(const int remote, void *data, const size_t size, const int timeout)
 {
     int port;
     char ipstr[INET6_ADDRSTRLEN];
     ssize_t bytes;
+    struct pollfd fd;
+    int ret;
 
     get_remote_ip_port(remote, ipstr, &port);
 
-    bytes = recv(remote, data, size, 0);
-    if (bytes == 0) {
-        log_info("Remote(%s:%d) has disconnected", ipstr, port);
-        goto error;
+    fd.fd = remote;
+    fd.events = POLLIN;
+    ret = poll(&fd, 1, timeout * 1000);
+    switch (ret) {
+    case -1:
+        debug("Polling error: %s", strerror(errno));
+        return C_POLL;
+        break;
+    case 0:
+        return C_TIMEOUT;
+        break;
+    default:
+        bytes = recv(remote, data, size, 0);
+        break;
     }
-    check(bytes >= 0, "Failed to read data from remote(%s:%d)", ipstr, port);
 
-    debug("RECEIVED FROM REMOTE(%s:%d)", ipstr, port);
+    if (bytes == 0) {
+        return C_DISCONNECT;
+    } else if (bytes < 0) {
+        return C_DATA;
+    }
 
-    return 0;
-error:
-    return -1;
+    return C_OK;
 }
 
-int send_msg(const int remote, void *data, const size_t size)
+int send_msg(const int remote, void *data, const size_t size, const int timeout)
 {
     int port;
     char ipstr[INET6_ADDRSTRLEN];
     ssize_t bytes;
+    struct pollfd fd;
+    int ret;
 
     get_remote_ip_port(remote, ipstr, &port);
 
-    bytes = send(remote, data, size, 0);
-    if (bytes == 0) {
-        log_info("Remote(%s:%d) has disconnected", ipstr, port);
+    fd.fd = remote;
+    fd.events = POLLOUT;
+    ret = poll(&fd, 1, -1);
+    switch (ret) {
+    case -1:
+        debug("Polling error: %s", strerror(errno));
+        return C_POLL;
+        break;
+    case 0:
+        return C_TIMEOUT;
+        break;
+    default:
+        bytes = send(remote, data, size, 0);
+        break;
     }
-    check(bytes >= 0, "Failed to write data to remote(%s:%d)", ipstr, port);
 
-    debug("SENT TO REMOTE(%s:%d)", ipstr, port);
+    if (bytes == 0) {
+        return C_DISCONNECT;
+    } else if (bytes < 0) {
+        return C_DATA;
+    }
 
-    return 0;
-error:
-    return -1;
+    return C_OK;
 }

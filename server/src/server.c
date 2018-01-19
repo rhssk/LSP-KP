@@ -103,7 +103,7 @@ int wait_for_client(int serv_sock)
         }
 
         get_remote_ip_port(client_sock, ipstr, &port);
-        log_info("Remote(%s:%d) has connected", ipstr, port);
+        log_info("%s:%d has connected", ipstr, port);
 
         wa = malloc(sizeof(worker_args_t));
         wa->socket = client_sock;
@@ -135,7 +135,7 @@ void *service_client(void *args)
     check(pthread_detach(pthread_self()) == 0,
           "Failed to detach current thread");
 
-    join_player(sock);
+    register_player(sock);
 error:
     if (!msg) free(msg);
     pthread_exit(NULL);
